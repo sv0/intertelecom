@@ -3,23 +3,33 @@
 __author__ = "Slavik Svyrydiuk"
 __email__ = "svyrydiuk@gmail.com"
 import re
-import requests
+import urllib
+import urllib2
 
 LOGIN_URL = 'https://assa.intertelecom.ua/ru/login/'
 
 
-def get_account_statistics(phone, password):
-    # Log in assa.intertelecom.ua and return page response.content
-    response = requests.post(
-        LOGIN_URL,
-        data={'phone': phone, 'pass': password, 'ref_link': '', 'js': '1'},
-        timeout=30
-    )
+def get_account_home_page(phone, password):
+    """
+    Log into Intertelecom ASSA and return home page's HTML
+    """
+    login_data = urllib.urlencode({
+        'phone': phone,
+        'pass': password,
+        'ref_link': '',
+        'js': '1'
+    })
+    req = urllib2.Request(LOGIN_URL, login_data)
+    opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
+    r = opener.open(req)
+    return r.read()
 
+
+def parse_account_statistics(html):
     current_session_traffic = float(
         re.search(
             r'<td>Трафик МБ</td>.*?(\d{1,4}\.\d{1,4}).*?</tr>',
-            response.content,
+            html,
             re.S
         ).group(1)
     )
@@ -27,19 +37,19 @@ def get_account_statistics(phone, password):
     prepaid_traffic = sum([
         float(traf) for traf in re.findall(
             r'<td>пакетный трафик.*?(\d{1,5}\.\d{1,5}).*?</tr>',
-            response.content,
+            html,
             re.S
         )])
 
     balance = float(
         re.search(
             r'<td>Сальдо.*?(\d{1,5}\.\d{1,2}).*?</tr>',
-            response.content, re.S
+            html, re.S
         ).group(1)
     )
 
     ip = re.search(
-        r'<td>IP.*?(\b\d+(?:\.\d+){3}\b).*?</tr>', response.content, re.S
+        r'<td>IP.*?(\b\d+(?:\.\d+){3}\b).*?</tr>', html, re.S
     ).group(1)
 
     return {
@@ -86,11 +96,13 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    account_statistics = get_account_statistics(args.user, args.password)
+    page_html = get_account_home_page(args.user, args.password)
+    stat = parse_account_statistics(page_html)
+
     values = []
     if args.trafic:
-        values.append(str(int(account_statistics['available_trafic'])))
+        values.append(str(int(stat['available_trafic'])))
     if args.balance:
-        values.append(str(account_statistics['balance']))
+        values.append(str(stat['balance']))
 
     print args.field_separator.join(values)
