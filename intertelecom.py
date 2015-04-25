@@ -5,13 +5,14 @@ __email__ = "svyrydiuk@gmail.com"
 import re
 import urllib
 import urllib2
+import logging
 
-LOGIN_URL = 'https://assa.intertelecom.ua/ru/login/'
+LOGIN_URL = 'https://assa2.intertelecom.ua/ru/login/'
 
 
 def get_account_home_page(phone, password):
     """
-    Log into Intertelecom ASSA and return home page's HTML
+    Log into Intertelecom ASSA and return home page HTML
     """
     login_data = urllib.urlencode({
         'phone': phone,
@@ -21,8 +22,9 @@ def get_account_home_page(phone, password):
     })
     req = urllib2.Request(LOGIN_URL, login_data)
     opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
-    r = opener.open(req)
-    return r.read()
+    response = opener.open(req)
+    logging.debug(response.getcode())
+    return response.read()
 
 
 def parse_account_statistics(html):
